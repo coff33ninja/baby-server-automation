@@ -15,12 +15,20 @@ IVENTOY_VERSION="1.0.20"
 IVENTOY_URL="https://github.com/ventoy/PXE/releases/download/v${IVENTOY_VERSION}/iventoy-${IVENTOY_VERSION}-linux-free.tar.gz"
 SMB_USER=""
 SMB_PASS=""
+SMB_GROUP=""
 
-# Prompt for SMB username and password
-echo "Please choose a username and password for your SMB share."
-read -p "Enter SMB username: " SMB_USER
-read -sp "Enter SMB password: " SMB_PASS
-echo "" # For newline after password input
+# Function to get the server's IP address
+get_server_ip() {
+    # Get the local IP address
+    SERVER_IP=$(hostname -I | awk '{print $1}')
+    echo "Your server's IP address is: $SERVER_IP"
+    echo "You can access the services through this IP address."
+    echo ""
+}
+
+# Prompt for IP address display
+echo "Fetching the server's IP address..."
+get_server_ip
 
 # Prompt for Tailscale installation
 read -p "Do you want to install Tailscale? (y/n): " INSTALL_TAILSCALE
@@ -75,7 +83,62 @@ else
     echo "Node.js and npm are already installed."
 fi
 
-# 5. Set up HFS
+# 5. Set up SMB (Samba)
+echo "Checking for existing users and groups..."
+EXISTING_USERS=$(getent passwd | cut -d: -f1)
+EXISTING_GROUPS=$(getent group | cut -d: -f1)
+
+# Prompt for existing user or new user creation
+echo "Existing users: $EXISTING_USERS"
+echo "Existing groups: $EXISTING_GROUPS"
+
+read -p "Do you want to use an existing user? (y/n): " USE_EXISTING_USER
+if [[ "$USE_EXISTING_USER" == "y" || "$USE_EXISTING_USER" == "Y" ]]; then
+    read -p "Enter the existing username: " SMB_USER
+    if [[ ! " ${EXISTING_USERS[@]} " =~ " ${SMB_USER} " ]]; then
+        echo "User does not exist. Please choose a valid user."
+        exit 1
+    fi
+else
+    read -p "Enter a new username for SMB: " SMB_USER
+    read -sp "Enter password for $SMB_USER: " SMB_PASS
+    echo ""
+
+    # Create new user if doesn't exist
+    sudo useradd -m -s /bin/bash $SMB_USER
+    echo "$SMB_USER:$SMB_PASS" | sudo chpasswd
+
+    # Create SMB group if doesn't exist
+    SMB_GROUP=$SMB_USER
+    if [[ ! " ${EXISTING_GROUPS[@]} " =~ " ${SMB_GROUP} " ]]; then
+        sudo groupadd $SMB_GROUP
+    fi
+
+    # Add user to the group
+    sudo usermod -aG $SMB_GROUP $SMB_USER
+fi
+
+# Create SMB share directory
+sudo mkdir -p /home/$SMB_USER/smb_share
+sudo chown -R $SMB_USER:$SMB_GROUP /home/$SMB_USER/smb_share
+sudo chmod 770 /home/$SMB_USER/smb_share
+
+# Configure Samba (SMB share)
+sudo smbpasswd -a $SMB_USER <<EOF
+$SMB_PASS
+$SMB_PASS
+EOF
+
+sudo tee -a /etc/samba/smb.conf > /dev/null <<EOF
+[$SMB_USER]
+   path = /home/$SMB_USER/smb_share
+   valid users = $SMB_USER
+   read only = no
+EOF
+
+sudo systemctl restart smbd
+
+# 6. Set up HFS
 if ! systemctl is-active --quiet hfs; then
     echo "Setting up HFS..."
     sudo adduser --system hfs
@@ -109,7 +172,7 @@ else
     echo "HFS is already installed and running."
 fi
 
-# 6. Set up UpSnap
+# 7. Set up UpSnap
 if ! systemctl is-active --quiet upsnap; then
     echo "Setting up UpSnap..."
     wget -O /tmp/upsnap.zip $UPSNAP_URL
@@ -139,7 +202,7 @@ else
     echo "UpSnap is already installed and running."
 fi
 
-# 7. Set up iVentoy
+# 8. Set up iVentoy
 if ! systemctl is-active --quiet iventoy; then
     echo "Setting up iVentoy..."
     wget -O /tmp/iventoy.tar.gz $IVENTOY_URL
@@ -153,27 +216,6 @@ if ! systemctl is-active --quiet iventoy; then
 else
     echo "iVentoy is already installed and running."
 fi
-
-# 8. Configure SMB (Samba)
-echo "Setting up SMB..."
-sudo smbpasswd -a $SMB_USER <<EOF
-$SMB_PASS
-$SMB_PASS
-EOF
-
-sudo tee -a /etc/samba/smb.conf > /dev/null <<EOF
-[iventoy]
-   path = /opt/iventoy
-   valid users = $SMB_USER
-   read only = no
-
-[hfs]
-   path = $HFS_CWD
-   valid users = $SMB_USER
-   read only = no
-EOF
-
-sudo systemctl restart smbd
 
 # 9. Optional: Set up Tailscale if user chose to install it
 if [[ "$INSTALL_TAILSCALE" == "y" || "$INSTALL_TAILSCALE" == "Y" ]]; then
@@ -203,9 +245,11 @@ if [[ "$INSTALL_TAILSCALE" == "y" || "$INSTALL_TAILSCALE" == "Y" ]]; then
     tailscale serve http://localhost:19999 --port=19999 # Netdata
 fi
 
-echo "All services have been set up successfully!"
-echo "HFS is available on port 8080."
-echo "UpSnap is available on port 8090."
-echo "Netdata is available on port 19999."
-echo "SMB shares are available for $SMB_USER on 'iventoy' and 'hfs' directories."
-echo "Cockpit is available on port 9090."
+# End Note
+echo "Installation complete!"
+echo "Access the following services using your server's IP address ($SERVER_IP):"
+echo "HFS: http://$SERVER_IP:8080"
+echo "UpSnap: http://$SERVER_IP:8090"
+echo "Netdata: http://$SERVER_IP:19999"
+echo "SMB Share: smb://$SERVER_IP/$SMB_USER"
+echo "Cockpit: http://$SERVER_IP:9090"
