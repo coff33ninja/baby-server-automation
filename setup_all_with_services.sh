@@ -106,7 +106,7 @@ create_samba_groups() {
 # Function to check if the user is in the root group
 check_user_in_root_group() {
     local user=$1
-    if groups "$user" | grep &>/dev/null "\broot\b"; then
+    if groups "$user" | grep -w "root" > /dev/null; then
         return 0
     else
         return 1
