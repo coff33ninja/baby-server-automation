@@ -63,34 +63,60 @@ sudo apt update && sudo apt upgrade -y
 echo "Installing essential tools..."
 sudo apt install -y curl wget git unzip tar nmap cockpit samba netdata
 
-# Install Cockpit applications
-echo "Installing Cockpit applications..."
-sudo apt install -y cockpit-storaged cockpit-networkmanager cockpit-packagekit cockpit-ostree cockpit-machines cockpit-podman cockpit-selinux cockpit-kdump cockpit-sosreport cockpit-files cockpit-composer cockpit-389-ds cockpit-session-recording cockpit-ovirt-dashboard cockpit-zfs cockpit-file-sharing cockpit-benchmark cockpit-tukit cockpit-sensors cockpit-tailscale cockpit-cloudflared
+# Install Cockpit applications from GitHub
+echo "Installing Cockpit applications from GitHub..."
 
-# Install additional Cockpit Navigator
-echo "Installing Cockpit Navigator..."
-wget https://github.com/45Drives/cockpit-navigator/releases/download/v0.5.10/cockpit-navigator_0.5.10-1focal_all.deb
-sudo apt install ./cockpit-navigator_0.5.10-1focal_all.deb
+# Cockpit applications with GitHub links
+declare -A cockpit_packages=(
+    ["cockpit-cloudflared"]="https://github.com/spotsnel/cockpit-cloudflared/releases/download/v0.0.2/cockpit-cloudflared-v0.0.2-1.fc38.noarch.rpm"
+    ["cockpit-tailscale"]="https://github.com/spotsnel/cockpit-tailscale/releases/download/v0.0.6/cockpit-tailscale-v0.0.6.6.gb7dbce5-1.el9.noarch.rpm"
+    ["cockpit-sensors"]="https://github.com/ocristopfer/cockpit-sensors/releases/download/1.1/cockpit-sensors.deb"
+    ["cockpit-benchmark"]="https://github.com/45Drives/cockpit-benchmark/releases/download/v2.1.1/cockpit-benchmark_2.1.1-1focal_all.deb"
+    ["cockpit-navigator"]="https://github.com/45Drives/cockpit-navigator/releases/download/v0.5.10/cockpit-navigator_0.5.10-1focal_all.deb"
+    ["cockpit-file-sharing"]="https://github.com/45Drives/cockpit-file-sharing/releases/download/v4.2.8/cockpit-file-sharing_4.2.8-1focal_all.deb"
+    ["cockpit-zfs-manager"]="https://github.com/45Drives/cockpit-zfs-manager/releases/download/v1.3.1/cockpit-zfs-manager_1.3.1-1focal_all.deb"
+    ["cockpit-session-recording"]="https://github.com/Scribery/cockpit-session-recording/releases/download/17/cockpit-session-recording-17.tar.xz"
+    ["cockpit-files"]="https://github.com/cockpit-project/cockpit-files/releases/download/14/cockpit-files-14.tar.xz"
+    ["cockpit-podman"]="https://github.com/cockpit-project/cockpit-podman/releases/download/99/cockpit-podman-99.tar.xz"
+    ["cockpit-ostree"]="https://github.com/cockpit-project/cockpit-ostree/releases/download/206/cockpit-ostree-206.tar.xz"
+)
 
-# Install additional Cockpit Sensors
-echo "Installing Cockpit Sensors..."
-wget https://github.com/ocristopfer/cockpit-sensors/releases/download/1.1/cockpit-sensors.deb
-sudo apt install .\cockpit-sensors.deb
+for pkg in "${!cockpit_packages[@]}"; do
+    echo "Installing $pkg..."
 
-# Install additional Cockpit Benchmark
-echo "Installing Cockpit Benchmark..."
-wget https://github.com/45Drives/cockpit-benchmark/releases/download/v2.1.1/cockpit-benchmark_2.1.1-1focal_all.deb
-sudo apt install .\cockpit-benchmark_2.1.1-1focal_all.deb
+    # Determine file extension
+    file_url="${cockpit_packages[$pkg]}"
+    file_name=$(basename "$file_url")
 
-# Install additional Cockpit File Sharing
-echo "Installing Cockpit File Sharing..."
-wget https://github.com/45Drives/cockpit-file-sharing/releases/download/v4.2.8/cockpit-file-sharing_4.2.8-1focal_all.deb
-sudo apt install .\cockpit-file-sharing_4.2.8-1focal_all.deb
+    # Download the package
+    wget -q "$file_url" -O "/tmp/$file_name"
 
-# Install additional Cockpit ZFS Manager
-echo "Installing Cockpit ZFS Manager..."
-wget https://github.com/45Drives/cockpit-zfs-manager/releases/download/v1.3.1/cockpit-zfs-manager_1.3.1-1focal_all.deb
-sudo apt install .\cockpit-zfs-manager_1.3.1-1focal_all.deb
+    # Install based on file type
+    case "$file_name" in
+        *.rpm)
+            # Convert .rpm to .deb if needed, or install via rpm
+            echo "Installing RPM package: $file_name"
+            sudo dnf install -y "/tmp/$file_name"  # Use dnf for RPM installations
+            ;;
+        *.deb)
+            echo "Installing DEB package: $file_name"
+            sudo dpkg -i "/tmp/$file_name"
+            sudo apt-get install -f -y  # Fix dependencies if needed
+            ;;
+        *.tar.xz)
+            # Extract tar.xz files and attempt to install them
+            echo "Extracting and installing TAR.XZ package: $file_name"
+            sudo tar -xvf "/tmp/$file_name" -C /opt  # Extract to /opt
+            ;;
+        *)
+            echo "Unsupported package type: $file_name"
+            ;;
+    esac
+
+    # Clean up
+    rm "/tmp/$file_name"
+done
+
 
 # 3. Enable and start Cockpit
 if ! systemctl is-active --quiet cockpit.socket; then
