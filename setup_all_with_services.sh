@@ -89,14 +89,15 @@ EXISTING_USERS=$(getent passwd | cut -d: -f1)
 EXISTING_GROUPS=$(getent group | cut -d: -f1)
 
 # Prompt for existing user or new user creation
-echo "Existing users: $EXISTING_USERS"
-echo "Existing groups: $EXISTING_GROUPS"
+echo "Existing users:"
+echo "$EXISTING_USERS" | less
+echo ""
 
 read -p "Do you want to use an existing user for Samba? (y/n): " USE_EXISTING_USER
 if [[ "$USE_EXISTING_USER" == "y" || "$USE_EXISTING_USER" == "Y" ]]; then
     read -p "Enter the existing username: " SMB_USER
-    if [[ ! " ${EXISTING_USERS[@]} " =~ " ${SMB_USER} " ]]; then
-        echo "User does not exist. Please choose a valid user."
+    if ! getent passwd $SMB_USER > /dev/null; then
+        echo "User $SMB_USER does not exist. Please choose a valid user."
         exit 1
     fi
 else
@@ -110,7 +111,7 @@ else
 
     # Create SMB group if doesn't exist
     SMB_GROUP=$SMB_USER
-    if [[ ! " ${EXISTING_GROUPS[@]} " =~ " ${SMB_GROUP} " ]]; then
+    if ! getent group $SMB_GROUP > /dev/null; then
         sudo groupadd $SMB_GROUP
     fi
 
