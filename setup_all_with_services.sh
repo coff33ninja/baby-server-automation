@@ -84,50 +84,68 @@ else
 fi
 
 # 5. Set up SMB (Samba)
-# Function to get users in the 'smb' group (if any)
-get_smb_users() {
-    # List users in 'smb' group or the root user
-    SMB_USERS=$(getent group smb | cut -d: -f4)
-    ROOT_USER="root"
-
-    if [ -n "$SMB_USERS" ]; then
-        echo "Users in the 'smb' group: $SMB_USERS"
-    fi
-    echo "Root user: $ROOT_USER"
+# Function to list users from /home/ and check if the user is in the root group
+get_home_users() {
+    USERS=$(ls /home/)
+    echo "Available users based on /home/ directory:"
+    echo "$USERS"
 }
 
-# Function to display a prompt for selecting a user
-select_smb_user() {
-    echo "Please select a user from the following list (or type a new user):"
-    get_smb_users
+# Function to create SMB groups if they don't exist
+create_samba_groups() {
+    if ! getent group samba > /dev/null; then
+        echo "Creating samba group..."
+        sudo groupadd samba
+    fi
+    if ! getent group smb > /dev/null; then
+        echo "Creating smb group..."
+        sudo groupadd smb
+    fi
+}
 
-    read -p "Do you want to use an existing user for Samba? (y/n): " USE_EXISTING_USER
-    if [[ "$USE_EXISTING_USER" == "y" || "$USE_EXISTING_USER" == "Y" ]]; then
-        read -p "Enter the existing username: " SMB_USER
-        # Check if the user exists in the smb group or is root
-        if getent passwd "$SMB_USER" > /dev/null || [[ "$SMB_USER" == "root" ]]; then
-            echo "Selected user: $SMB_USER"
-        else
-            echo "Invalid user. Please select a valid user."
-            exit 1
+# Function to check if the user is in the root group
+check_user_in_root_group() {
+    local user=$1
+    if groups "$user" | grep &>/dev/null "\broot\b"; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to handle SMB user creation or selection
+select_smb_user() {
+    get_home_users
+
+    read -p "Enter the username to be used for Samba (or type a new user): " SMB_USER
+
+    # Check if user exists in /home/
+    if [ -d "/home/$SMB_USER" ]; then
+        echo "User $SMB_USER exists."
+        
+        # Check if the user is in the root group
+        if ! check_user_in_root_group "$SMB_USER"; then
+            echo "User $SMB_USER is not in the root group. Please provide admin access to proceed."
+            sudo -v
         fi
     else
-        read -p "Enter a new username for SMB: " SMB_USER
+        echo "User $SMB_USER does not exist, creating new user."
+
         read -sp "Enter password for $SMB_USER: " SMB_PASS
         echo ""
         
         # Create new user if doesn't exist
         sudo useradd -m -s /bin/bash "$SMB_USER"
         echo "$SMB_USER:$SMB_PASS" | sudo chpasswd
-        # Add user to smb group
-        sudo usermod -aG smb "$SMB_USER"
+        # Add user to samba and smb groups
+        sudo usermod -aG samba,smb "$SMB_USER"
     fi
 }
 
-# Main setup process
-echo "Starting the Samba (SMB) setup..."
+# Create necessary Samba groups
+create_samba_groups
 
-# Select SMB user
+# Select or create SMB user
 select_smb_user
 
 # Now proceed with the rest of the script where you use $SMB_USER for SMB share setup
