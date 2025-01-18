@@ -154,36 +154,29 @@ sudo mkdir -p /home/$SMB_USER/smb_share
 sudo chown -R $SMB_USER:smb /home/$SMB_USER/smb_share
 sudo chmod 770 /home/$SMB_USER/smb_share
 
-# Configure Samba (SMB share)
+# Configure Samba (SMB share) with required security settings
 sudo smbpasswd -a $SMB_USER <<EOF
 $SMB_PASS
 $SMB_PASS
 EOF
 
+# Edit smb.conf to disable guest access and require authentication
 sudo tee -a /etc/samba/smb.conf > /dev/null <<EOF
 [$SMB_USER]
    path = /home/$SMB_USER/smb_share
    valid users = $SMB_USER
    read only = no
+   guest ok = no
+   create mask = 0775
+   directory mask = 0775
 EOF
 
+# Restart Samba service to apply changes
 sudo systemctl restart smbd
 
-echo "SMB share for $SMB_USER is set up!"
+echo "SMB share for $SMB_USER is set up with authentication required!"
 
-# 6. Set up HFS
-if ! systemctl is-active --quiet hfs; then
-    echo "Setting up HFS..."
-    sudo adduser --system hfs
-    sudo mkdir -p $HFS_CWD
-    wget -O /tmp/hfs.zip $HFS_URL
-    unzip /tmp/hfs.zip -d /tmp/hfs
-    sudo mv /tmp/hfs/hfs $HFS_BINARY
-    sudo mv /tmp/hfs/plugins $HFS_CWD/plugins
-    sudo chown -R hfs:nogroup $HFS_CWD
-    sudo setcap CAP_NET_BIND_SERVICE=+eip $HFS_BINARY
-
-    sudo tee /etc/systemd/system/hfs.service > /dev/null <<EOF
+# 6. Set up HFS    
 [Unit]
 Description=HFS
 After=network.target
