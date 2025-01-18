@@ -63,6 +63,35 @@ sudo apt update && sudo apt upgrade -y
 echo "Installing essential tools..."
 sudo apt install -y curl wget git unzip tar nmap cockpit samba netdata
 
+# Install Cockpit applications
+echo "Installing Cockpit applications..."
+sudo apt install -y cockpit-storaged cockpit-networkmanager cockpit-packagekit cockpit-ostree cockpit-machines cockpit-podman cockpit-selinux cockpit-kdump cockpit-sosreport cockpit-files cockpit-composer cockpit-389-ds cockpit-session-recording cockpit-ovirt-dashboard cockpit-zfs cockpit-file-sharing cockpit-benchmark cockpit-tukit cockpit-sensors cockpit-tailscale cockpit-cloudflared
+
+# Install additional Cockpit Navigator
+echo "Installing Cockpit Navigator..."
+wget https://github.com/45Drives/cockpit-navigator/releases/download/v0.5.10/cockpit-navigator_0.5.10-1focal_all.deb
+sudo apt install ./cockpit-navigator_0.5.10-1focal_all.deb
+
+# Install additional Cockpit Sensors
+echo "Installing Cockpit Sensors..."
+wget https://github.com/ocristopfer/cockpit-sensors/releases/download/1.1/cockpit-sensors.deb
+sudo apt install .\cockpit-sensors.deb
+
+# Install additional Cockpit Benchmark
+echo "Installing Cockpit Benchmark..."
+wget https://github.com/45Drives/cockpit-benchmark/releases/download/v2.1.1/cockpit-benchmark_2.1.1-1focal_all.deb
+sudo apt install .\cockpit-benchmark_2.1.1-1focal_all.deb
+
+# Install additional Cockpit File Sharing
+echo "Installing Cockpit File Sharing..."
+wget https://github.com/45Drives/cockpit-file-sharing/releases/download/v4.2.8/cockpit-file-sharing_4.2.8-1focal_all.deb
+sudo apt install .\cockpit-file-sharing_4.2.8-1focal_all.deb
+
+# Install additional Cockpit ZFS Manager
+echo "Installing Cockpit ZFS Manager..."
+wget https://github.com/45Drives/cockpit-zfs-manager/releases/download/v1.3.1/cockpit-zfs-manager_1.3.1-1focal_all.deb
+sudo apt install .\cockpit-zfs-manager_1.3.1-1focal_all.deb
+
 # 3. Enable and start Cockpit
 if ! systemctl is-active --quiet cockpit.socket; then
     echo "Setting up Cockpit..."
