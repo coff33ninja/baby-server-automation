@@ -278,17 +278,18 @@ fi
 # 11. Optional: Expose services via Tailscale Funnel (if Tailscale is installed)
 if [[ "$INSTALL_TAILSCALE" == "y" || "$INSTALL_TAILSCALE" == "Y" ]]; then
     echo "Exposing services via Tailscale Funnel..."
-    tailscale serve https / --port=443
+    tailscale funnel https+insecure://localhost:443
     tailscale serve http://localhost:8090 --port=8090 # UpSnap
-    tailscale serve http://localhost:8080 --port=8080 # HFS
+    tailscale serve http://localhost:80 --port=80 # HFS
     tailscale serve http://localhost:19999 --port=19999 # Netdata
 fi
 
 # End Note
 echo "Installation complete!"
 echo "Access the following services using your server's IP address ($SERVER_IP):"
-echo "HFS: http://$SERVER_IP:8080"
+echo "HFS: http://$SERVER_IP"
 echo "UpSnap: http://$SERVER_IP:8090"
+echo "IVentoy: http://$SERVER_IP:26000"
 echo "Netdata: http://$SERVER_IP:19999"
 echo "SMB Share: smb://$SERVER_IP/$SMB_USER"
 echo "Cockpit: http://$SERVER_IP:9090"
