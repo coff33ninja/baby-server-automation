@@ -92,7 +92,7 @@ EXISTING_GROUPS=$(getent group | cut -d: -f1)
 echo "Existing users: $EXISTING_USERS"
 echo "Existing groups: $EXISTING_GROUPS"
 
-read -p "Do you want to use an existing user? (y/n): " USE_EXISTING_USER
+read -p "Do you want to use an existing user for Samba? (y/n): " USE_EXISTING_USER
 if [[ "$USE_EXISTING_USER" == "y" || "$USE_EXISTING_USER" == "Y" ]]; then
     read -p "Enter the existing username: " SMB_USER
     if [[ ! " ${EXISTING_USERS[@]} " =~ " ${SMB_USER} " ]]; then
