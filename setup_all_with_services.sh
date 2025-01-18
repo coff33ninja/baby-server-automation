@@ -270,19 +270,53 @@ else
 fi
 
 # 8. Set up iVentoy
-if ! systemctl is-active --quiet iventoy; then
-    echo "Setting up iVentoy..."
+check_iventoy_installed() {
+    if [ -f "$IVENTOY_INSTALL_DIR/iventoy.sh" ]; then
+        echo "iVentoy is already installed."
+        return 0
+    else
+        echo "iVentoy is not installed."
+        return 1
+    fi
+}
+
+# Install iVentoy if not already installed
+if ! check_iventoy_installed; then
+    echo "Downloading and installing iVentoy..."
     wget -O /tmp/iventoy.tar.gz $IVENTOY_URL
     tar -xzf /tmp/iventoy.tar.gz -C /tmp/
-    cd /tmp/iventoy-* || exit
-
-    # Run iventoy.sh instead of install.sh
-    echo "Running iVentoy setup..."
-    sudo bash ./iventoy.sh start
-    cd -
+    sudo mv /tmp/iventoy-* $IVENTOY_INSTALL_DIR
+    sudo chown -R root:root $IVENTOY_INSTALL_DIR
+    echo "iVentoy installed successfully."
 else
-    echo "iVentoy is already installed and running."
+    echo "Skipping iVentoy installation."
 fi
+
+# Create systemd service for iVentoy
+echo "Creating systemd service for iVentoy..."
+sudo tee $IVENTOY_SERVICE_FILE > /dev/null <<EOF
+[Unit]
+Description=iVentoy Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=$IVENTOY_INSTALL_DIR/iventoy.sh start
+Restart=always
+User=root
+WorkingDirectory=$IVENTOY_INSTALL_DIR
+Environment=PATH=/usr/bin:/usr/local/bin
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Reload systemd and enable the service
+sudo systemctl daemon-reload
+sudo systemctl enable iventoy
+sudo systemctl start iventoy
+
+echo "iVentoy service created and started successfully."
 
 # 9. Optional: Set up Tailscale if user chose to install it
 if [[ "$INSTALL_TAILSCALE" == "y" || "$INSTALL_TAILSCALE" == "Y" ]]; then
