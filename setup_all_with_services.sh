@@ -179,6 +179,17 @@ sudo systemctl restart smbd
 echo "SMB share for $SMB_USER is set up with authentication required!"
 
 # 6. Set up HFS    
+if ! systemctl is-active --quiet hfs; then
+    echo "Setting up HFS..."
+    wget -O /tmp/hfs.zip $HFS_URL
+    unzip /tmp/hfs.zip -d /tmp/hfs
+    sudo mv /tmp/hfs/hfs-linux-x64-${HFS_VERSION}/hfs /usr/local/bin/hfs
+    sudo mkdir -p $HFS_CWD
+    sudo chown root:root /usr/local/bin/hfs
+    sudo chmod +x /usr/local/bin/hfs
+
+    # Create systemd service for HFS
+    sudo tee /etc/systemd/system/hfs.service > /dev/null <<EOF
 [Unit]
 Description=HFS
 After=network.target
