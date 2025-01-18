@@ -106,12 +106,14 @@ create_samba_groups() {
 # Function to check if the user is in the root group
 check_user_in_root_group() {
     local user=$1
-    if groups "$user" | grep -w "root" > /dev/null; then
-        return 0
+    # Check if the user is part of the 'root' group by parsing /etc/group
+    if grep -q "\b$user\b" /etc/group | grep -w "root" > /dev/null; then
+        return 0  # User is in the root group
     else
-        return 1
+        return 1  # User is not in the root group
     fi
 }
+
 
 # Function to handle SMB user creation or selection
 select_smb_user() {
