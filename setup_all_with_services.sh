@@ -13,8 +13,14 @@ UPSNAP_VERSION="4.5.1"
 UPSNAP_URL="https://github.com/seriousm4x/UpSnap/releases/download/${UPSNAP_VERSION}/UpSnap_${UPSNAP_VERSION}_linux_amd64.zip"
 IVENTOY_VERSION="1.0.20"
 IVENTOY_URL="https://github.com/ventoy/PXE/releases/download/v${IVENTOY_VERSION}/iventoy-${IVENTOY_VERSION}-linux-free.tar.gz"
-SMB_USER="shareduser"
-SMB_PASS="sharedpassword"
+SMB_USER=""
+SMB_PASS=""
+
+# Prompt for SMB username and password
+echo "Please choose a username and password for your SMB share."
+read -p "Enter SMB username: " SMB_USER
+read -sp "Enter SMB password: " SMB_PASS
+echo "" # For newline after password input
 
 # Prompt for Tailscale installation
 read -p "Do you want to install Tailscale? (y/n): " INSTALL_TAILSCALE
