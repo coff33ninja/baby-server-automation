@@ -13,9 +13,17 @@ UPSNAP_VERSION="4.5.1"
 UPSNAP_URL="https://github.com/seriousm4x/UpSnap/releases/download/${UPSNAP_VERSION}/UpSnap_${UPSNAP_VERSION}_linux_amd64.zip"
 IVENTOY_VERSION="1.0.20"
 IVENTOY_URL="https://github.com/ventoy/PXE/releases/download/v${IVENTOY_VERSION}/iventoy-${IVENTOY_VERSION}-linux-free.tar.gz"
-SMB_USER="shareduser"
-SMB_PASS="sharedpassword"
-TAILSCALE_AUTH_KEY="your-tailscale-auth-key" # Replace with your actual key from Tailscale admin console
+
+# Prompt for sensitive information
+echo "Please provide the following details:"
+
+# Tailscale Auth Key
+read -p "Enter your Tailscale Auth Key: " TAILSCALE_AUTH_KEY
+
+# SMB User and Password
+read -p "Enter your desired SMB username: " SMB_USER
+read -sp "Enter your desired SMB password: " SMB_PASS
+echo
 
 echo "Starting the full system setup..."
 
@@ -106,10 +114,7 @@ cd -
 
 # 8. Configure SMB (Samba)
 echo "Setting up SMB..."
-sudo smbpasswd -a $SMB_USER <<EOF
-$SMB_PASS
-$SMB_PASS
-EOF
+echo -e "$SMB_PASS\n$SMB_PASS" | sudo smbpasswd -a $SMB_USER
 
 sudo tee -a /etc/samba/smb.conf > /dev/null <<EOF
 [iventoy]
