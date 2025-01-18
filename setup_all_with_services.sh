@@ -144,7 +144,6 @@ check_user_in_root_group() {
     fi
 }
 
-
 # Function to handle SMB user creation or selection
 select_smb_user() {
     get_home_users
@@ -181,7 +180,6 @@ create_samba_groups
 select_smb_user
 
 # Now proceed with the rest of the script where you use $SMB_USER for SMB share setup
-# For example, you could continue to configure the SMB share directory:
 sudo mkdir -p /home/$SMB_USER/smb_share
 sudo chown -R $SMB_USER:smb /home/$SMB_USER/smb_share
 sudo chmod 770 /home/$SMB_USER/smb_share
