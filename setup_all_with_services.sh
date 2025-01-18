@@ -64,31 +64,43 @@ echo "Installing essential tools..."
 sudo apt install -y curl wget git unzip tar nmap cockpit samba netdata
 
 # 3. Enable and start Cockpit
-# Function to check if the server is connected to the internet
-check_network_connection() {
-    echo "Checking network connection..."
-    if ! ping -c 1 8.8.8.8 &>/dev/null; then
-        echo "No network connection detected. Please check your internet connection and try again."
-        exit 1
-    fi
-    echo "Network is up and reachable."
-}
-
-# Check network connection before proceeding with Cockpit setup
-check_network_connection
-
-# 3. Enable and start Cockpit
 if ! systemctl is-active --quiet cockpit.socket; then
     echo "Setting up Cockpit..."
-    
-    # Force refresh Cockpit's cache
-    sudo apt-get update --allow-unauthenticated
-    
     sudo systemctl enable --now cockpit.socket
     sudo systemctl start cockpit.socket
 else
     echo "Cockpit is already installed and running."
 fi
+
+# Ensure NetworkManager is installed and configured for Cockpit
+echo "Ensuring NetworkManager is installed and configured for Cockpit..."
+if ! dpkg -l | grep -q network-manager; then
+    echo "Installing NetworkManager..."
+    sudo apt-get install -y network-manager
+fi
+
+# Modify Netplan configuration to use NetworkManager as renderer
+echo "Configuring Netplan to use NetworkManager..."
+NETPLAN_CONFIG_FILE="/etc/netplan/01-netcfg.yaml"
+
+# Check if the Netplan config file exists before modifying
+if [ -f "$NETPLAN_CONFIG_FILE" ]; then
+    sudo sed -i 's/renderer: .*/renderer: NetworkManager/' "$NETPLAN_CONFIG_FILE"
+    echo "Netplan configured to use NetworkManager."
+else
+    echo "Netplan config file not found. Skipping renderer modification."
+fi
+
+# Apply Netplan configuration
+echo "Applying Netplan configuration..."
+sudo netplan apply
+
+# Restart NetworkManager and Cockpit to apply changes
+echo "Restarting NetworkManager and Cockpit..."
+sudo systemctl restart NetworkManager
+sudo systemctl restart cockpit.socket
+
+echo "Cockpit and NetworkManager configured successfully."
 
 # 4. Install Node.js and npm
 if ! node -v &>/dev/null; then
