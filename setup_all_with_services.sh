@@ -64,8 +64,26 @@ echo "Installing essential tools..."
 sudo apt install -y curl wget git unzip tar nmap cockpit samba netdata
 
 # 3. Enable and start Cockpit
+# Function to check if the server is connected to the internet
+check_network_connection() {
+    echo "Checking network connection..."
+    if ! ping -c 1 8.8.8.8 &>/dev/null; then
+        echo "No network connection detected. Please check your internet connection and try again."
+        exit 1
+    fi
+    echo "Network is up and reachable."
+}
+
+# Check network connection before proceeding with Cockpit setup
+check_network_connection
+
+# 3. Enable and start Cockpit
 if ! systemctl is-active --quiet cockpit.socket; then
     echo "Setting up Cockpit..."
+    
+    # Force refresh Cockpit's cache
+    sudo apt-get update --allow-unauthenticated
+    
     sudo systemctl enable --now cockpit.socket
     sudo systemctl start cockpit.socket
 else
