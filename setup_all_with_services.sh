@@ -84,44 +84,56 @@ else
 fi
 
 # 5. Set up SMB (Samba)
-echo "Checking for existing users and groups..."
-EXISTING_USERS=$(getent passwd | cut -d: -f1)
-EXISTING_GROUPS=$(getent group | cut -d: -f1)
+# Function to get users in the 'smb' group (if any)
+get_smb_users() {
+    # List users in 'smb' group or the root user
+    SMB_USERS=$(getent group smb | cut -d: -f4)
+    ROOT_USER="root"
 
-# Prompt for existing user or new user creation
-echo "Existing users:"
-echo "$EXISTING_USERS" | less
-echo ""
-
-read -p "Do you want to use an existing user for Samba? (y/n): " USE_EXISTING_USER
-if [[ "$USE_EXISTING_USER" == "y" || "$USE_EXISTING_USER" == "Y" ]]; then
-    read -p "Enter the existing username: " SMB_USER
-    if ! getent passwd $SMB_USER > /dev/null; then
-        echo "User $SMB_USER does not exist. Please choose a valid user."
-        exit 1
+    if [ -n "$SMB_USERS" ]; then
+        echo "Users in the 'smb' group: $SMB_USERS"
     fi
-else
-    read -p "Enter a new username for SMB: " SMB_USER
-    read -sp "Enter password for $SMB_USER: " SMB_PASS
-    echo ""
+    echo "Root user: $ROOT_USER"
+}
 
-    # Create new user if doesn't exist
-    sudo useradd -m -s /bin/bash $SMB_USER
-    echo "$SMB_USER:$SMB_PASS" | sudo chpasswd
+# Function to display a prompt for selecting a user
+select_smb_user() {
+    echo "Please select a user from the following list (or type a new user):"
+    get_smb_users
 
-    # Create SMB group if doesn't exist
-    SMB_GROUP=$SMB_USER
-    if ! getent group $SMB_GROUP > /dev/null; then
-        sudo groupadd $SMB_GROUP
+    read -p "Do you want to use an existing user for Samba? (y/n): " USE_EXISTING_USER
+    if [[ "$USE_EXISTING_USER" == "y" || "$USE_EXISTING_USER" == "Y" ]]; then
+        read -p "Enter the existing username: " SMB_USER
+        # Check if the user exists in the smb group or is root
+        if getent passwd "$SMB_USER" > /dev/null || [[ "$SMB_USER" == "root" ]]; then
+            echo "Selected user: $SMB_USER"
+        else
+            echo "Invalid user. Please select a valid user."
+            exit 1
+        fi
+    else
+        read -p "Enter a new username for SMB: " SMB_USER
+        read -sp "Enter password for $SMB_USER: " SMB_PASS
+        echo ""
+        
+        # Create new user if doesn't exist
+        sudo useradd -m -s /bin/bash "$SMB_USER"
+        echo "$SMB_USER:$SMB_PASS" | sudo chpasswd
+        # Add user to smb group
+        sudo usermod -aG smb "$SMB_USER"
     fi
+}
 
-    # Add user to the group
-    sudo usermod -aG $SMB_GROUP $SMB_USER
-fi
+# Main setup process
+echo "Starting the Samba (SMB) setup..."
 
-# Create SMB share directory
+# Select SMB user
+select_smb_user
+
+# Now proceed with the rest of the script where you use $SMB_USER for SMB share setup
+# For example, you could continue to configure the SMB share directory:
 sudo mkdir -p /home/$SMB_USER/smb_share
-sudo chown -R $SMB_USER:$SMB_GROUP /home/$SMB_USER/smb_share
+sudo chown -R $SMB_USER:smb /home/$SMB_USER/smb_share
 sudo chmod 770 /home/$SMB_USER/smb_share
 
 # Configure Samba (SMB share)
@@ -138,6 +150,8 @@ sudo tee -a /etc/samba/smb.conf > /dev/null <<EOF
 EOF
 
 sudo systemctl restart smbd
+
+echo "SMB share for $SMB_USER is set up!"
 
 # 6. Set up HFS
 if ! systemctl is-active --quiet hfs; then
