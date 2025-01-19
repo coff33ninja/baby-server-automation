@@ -295,7 +295,6 @@ EOF
     sudo systemctl daemon-reload
     sudo systemctl enable hfs
     sudo systemctl start hfs
-    sudo systemctl status hfs
 }
 
 install_hfs_nodejs
