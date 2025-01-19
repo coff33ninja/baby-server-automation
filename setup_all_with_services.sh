@@ -261,88 +261,7 @@ sudo systemctl restart smbd
 
 echo "SMB share for $SMB_USER is set up with authentication required!"
 
-# 6. Set up HFS    
-# Set variables for HFS binary and plugin paths
-HFS_BINARY="/usr/local/bin/hfs"
-HFS_PLUGIN_DIR="/var/lib/hfs/plugins"
-HFS_CWD="/var/lib/hfs"
-HFS_BINARY_LOCAL="hfs"  # Update this if hfs binary has a different filename in your current directory
-HFS_URL="hhttps://github.com/rejetto/hfs/releases/download/v0.55.4/hfs-linux-x64-0.55.4.zip"
-
-# Install HFS with a non-privileged user (Recommended for security)
-install_hfs_non_privileged() {
-    echo "Installing HFS with a non-privileged user..."
-
-    # Check if the user 'hfs' exists, if not, create it
-    if ! id -u hfs &>/dev/null; then
-        echo "Creating user 'hfs'..."
-        sudo adduser --system hfs || { echo "User creation failed"; exit 1; }
-    else
-        echo "User 'hfs' already exists, skipping user creation."
-    fi
-
-    # Ensure the necessary directories exist
-    echo "Creating directory $HFS_CWD..."
-    sudo mkdir -p $HFS_CWD || { echo "Failed to create directory $HFS_CWD"; exit 1; }
-
-    # Check if the HFS binary exists in the current directory
-    if [ ! -f "$HFS_BINARY_LOCAL" ]; then
-        echo "Error: $HFS_BINARY_LOCAL binary not found in the current directory."
-        echo "Attempting to download the HFS binary from $HFS_URL..."
-
-        # Download and unzip the HFS binary
-        wget -O /tmp/hfs.zip $HFS_URL || { echo "Failed to download HFS binary"; exit 1; }
-        unzip /tmp/hfs.zip -d /tmp/hfs || { echo "Failed to unzip HFS binary"; exit 1; }
-
-        # Move the downloaded HFS binary to the desired location
-        sudo mv /tmp/hfs/hfs-linux-x64-* $HFS_BINARY || { echo "Failed to move hfs binary"; exit 1; }
-        echo "HFS binary downloaded and moved to $HFS_BINARY."
-    fi
-
-    # Move plugins to the appropriate location (if the plugins folder exists)
-    if [ -d "plugins" ]; then
-        echo "Moving plugins directory to $HFS_PLUGIN_DIR..."
-        sudo mv plugins/ $HFS_PLUGIN_DIR || { echo "Failed to move plugins"; exit 1; }
-    else
-        echo "Warning: plugins directory does not exist. Skipping plugin move."
-    fi
-
-    # Change ownership of the working directory
-    echo "Changing ownership of $HFS_CWD to hfs..."
-    sudo chown hfs:nogroup $HFS_CWD || { echo "Failed to change ownership"; exit 1; }
-
-    # Set capability for HFS binary to allow binding to low-numbered ports
-    echo "Setting capabilities for $HFS_BINARY..."
-    sudo setcap CAP_NET_BIND_SERVICE=+eip $HFS_BINARY || { echo "Failed to set capabilities on HFS"; exit 1; }
-
-    # Create systemd service for HFS
-    echo "Creating systemd service for HFS..."
-    sudo tee /etc/systemd/system/hfs.service > /dev/null <<EOF
-[Unit]
-Description=HFS
-After=network.target
-
-[Service]
-Type=simple
-User=hfs
-Restart=always
-ExecStart=$HFS_BINARY --cwd $HFS_CWD
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    # Reload systemd and start HFS service
-    echo "Reloading systemd and starting HFS service..."
-    sudo systemctl daemon-reload
-    sudo systemctl enable hfs
-    sudo systemctl start hfs
-    sudo systemctl status hfs
-}
-
-install_hfs_non_privileged
-
-# Option 2: Install HFS via Node.js (using npx)
+# 6. Install HFS via Node.js (using npx)
 # Ensure Node.js is installed
 install_hfs_nodejs() {
     echo "Installing HFS via Node.js..."
@@ -380,22 +299,6 @@ EOF
 }
 
 install_hfs_nodejs
-
-# Choose installation method
-echo "Select installation method:"
-echo "1. Install HFS with non-privileged user (Recommended)"
-echo "2. Install HFS using Node.js (via npx)"
-read -p "Enter 1 or 2: " choice
-
-if [ "$choice" -eq 1 ]; then
-    install_hfs_non_privileged
-elif [ "$choice" -eq 2 ]; then
-    install_hfs_nodejs
-else
-    echo "Invalid choice. Please enter 1 or 2."
-    exit 1
-fi
-
 
 # 7. Set up UpSnap
 if ! systemctl is-active --quiet upsnap; then
