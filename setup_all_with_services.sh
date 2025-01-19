@@ -267,23 +267,23 @@ HFS_BINARY="/usr/local/bin/hfs"
 HFS_PLUGIN_DIR="/var/lib/hfs/plugins"
 HFS_CWD="/var/lib/hfs"
 
-# Option 1: Install HFS with a non-privileged user (Recommended for security)
+# Install HFS with a non-privileged user (Recommended for security)
 install_hfs_non_privileged() {
     echo "Installing HFS with a non-privileged user..."
 
     # Create system user and directories
-    sudo adduser --system hfs
-    sudo mkdir -p $HFS_CWD
+    sudo adduser --system hfs || { echo "User creation failed"; exit 1; }
+    sudo mkdir -p $HFS_CWD || { echo "Failed to create directory $HFS_CWD"; exit 1; }
 
     # Move HFS binary and plugins to appropriate locations
-    sudo mv hfs $HFS_BINARY
-    sudo mv plugins/ $HFS_PLUGIN_DIR
+    sudo mv hfs $HFS_BINARY || { echo "Failed to move hfs binary"; exit 1; }
+    sudo mv plugins/ $HFS_PLUGIN_DIR || { echo "Failed to move plugins"; exit 1; }
 
     # Change ownership of the working directory
-    sudo chown hfs:nogroup $HFS_CWD
+    sudo chown hfs:nogroup $HFS_CWD || { echo "Failed to change ownership"; exit 1; }
 
     # Set capability for HFS binary to allow binding to low-numbered ports
-    sudo setcap CAP_NET_BIND_SERVICE=+eip $HFS_BINARY
+    sudo setcap CAP_NET_BIND_SERVICE=+eip $HFS_BINARY || { echo "Failed to set capabilities on HFS"; exit 1; }
 
     # Create systemd service for HFS
     sudo tee /etc/systemd/system/hfs.service > /dev/null <<EOF
@@ -308,13 +308,22 @@ EOF
     sudo systemctl status hfs
 }
 
-# Option 2: Install HFS via Node.js (using npx)
-install_hfs_nodejs() {
-    echo "Installing HFS with Node.js..."
+install_hfs_non_privileged
 
-    # Ensure Node.js is installed
+# Option 2: Install HFS via Node.js (using npx)
+# Ensure Node.js is installed
+install_hfs_nodejs() {
+    echo "Installing HFS via Node.js..."
+
+    # Update package list and install dependencies
     sudo apt update
-    sudo apt install -y nodejs npm
+    sudo apt install -y nodejs npm || { echo "Failed to install Node.js"; exit 1; }
+
+    # Verify npx installation
+    if ! command -v npx &>/dev/null; then
+        echo "npx is not installed, installing npx..."
+        sudo npm install -g npx || { echo "Failed to install npx"; exit 1; }
+    fi
 
     # Create systemd service for HFS using npx
     sudo tee /etc/systemd/system/hfs.service > /dev/null <<EOF
@@ -337,6 +346,8 @@ EOF
     sudo systemctl start hfs
     sudo systemctl status hfs
 }
+
+install_hfs_nodejs
 
 # Choose installation method
 echo "Select installation method:"
