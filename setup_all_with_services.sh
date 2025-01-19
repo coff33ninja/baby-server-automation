@@ -68,7 +68,7 @@ echo "Installing Cockpit applications from GitHub..."
 
 # Cockpit applications with GitHub links
 declare -A cockpit_packages=(
-    ["cockpit-cloudflared"]="https://github.com/spotsnel/cockpit-cloudflared/releases/download/v0.0.2/cockpit-cloudflared-v0.0.2-1.fc38.noarch.rpm"
+    # ["cockpit-cloudflared"]="https://github.com/spotsnel/cockpit-cloudflared/releases/download/v0.0.2/cockpit-cloudflared-v0.0.2-1.fc38.noarch.rpm"
     ["cockpit-tailscale"]="https://github.com/spotsnel/cockpit-tailscale/releases/download/v0.0.6/cockpit-tailscale-v0.0.6.6.gb7dbce5-1.el9.noarch.rpm"
     ["cockpit-sensors"]="https://github.com/ocristopfer/cockpit-sensors/releases/download/1.1/cockpit-sensors.deb"
     ["cockpit-benchmark"]="https://github.com/45Drives/cockpit-benchmark/releases/download/v2.1.1/cockpit-benchmark_2.1.1-1focal_all.deb"
