@@ -330,6 +330,12 @@ else
 fi
 
 # 8. Set up iVentoy
+# Set installation and service paths
+USER_HOME="/home/$USER"
+IVENTOY_INSTALL_DIR="$USER_HOME/iventoy"
+IVENTOY_SERVICE_FILE="/etc/systemd/system/iventoy.service"
+
+# Check if iVentoy is installed
 check_iventoy_installed() {
     if [ -f "$IVENTOY_INSTALL_DIR/iventoy.sh" ]; then
         echo "iVentoy is already installed."
@@ -345,8 +351,8 @@ if ! check_iventoy_installed; then
     echo "Downloading and installing iVentoy..."
     wget -O /tmp/iventoy.tar.gz $IVENTOY_URL
     tar -xzf /tmp/iventoy.tar.gz -C /tmp/
-    sudo mv /tmp/iventoy-* $IVENTOY_INSTALL_DIR
-    sudo chown -R root:root $IVENTOY_INSTALL_DIR
+    mv /tmp/iventoy-* $IVENTOY_INSTALL_DIR
+    chown -R $USER:$USER $IVENTOY_INSTALL_DIR
     echo "iVentoy installed successfully."
 else
     echo "Skipping iVentoy installation."
@@ -363,7 +369,7 @@ After=network.target
 Type=simple
 ExecStart=$IVENTOY_INSTALL_DIR/iventoy.sh start
 Restart=always
-User=root
+User=$USER
 WorkingDirectory=$IVENTOY_INSTALL_DIR
 Environment=PATH=/usr/bin:/usr/local/bin
 
