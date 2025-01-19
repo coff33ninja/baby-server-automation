@@ -266,17 +266,30 @@ echo "SMB share for $SMB_USER is set up with authentication required!"
 HFS_BINARY="/usr/local/bin/hfs"
 HFS_PLUGIN_DIR="/var/lib/hfs/plugins"
 HFS_CWD="/var/lib/hfs"
+HFS_BINARY_LOCAL="hfs"  # Update this if hfs binary has a different filename in your current directory
 
 # Install HFS with a non-privileged user (Recommended for security)
 install_hfs_non_privileged() {
     echo "Installing HFS with a non-privileged user..."
 
-    # Create system user and directories
-    sudo adduser --system hfs || { echo "User creation failed"; exit 1; }
+    # Check if the user 'hfs' exists, if not, create it
+    if ! id -u hfs &>/dev/null; then
+        sudo adduser --system hfs || { echo "User creation failed"; exit 1; }
+    else
+        echo "User 'hfs' already exists."
+    fi
+
+    # Ensure the necessary directories exist
     sudo mkdir -p $HFS_CWD || { echo "Failed to create directory $HFS_CWD"; exit 1; }
 
+    # Ensure the HFS binary exists before moving it
+    if [ ! -f "$HFS_BINARY_LOCAL" ]; then
+        echo "Error: $HFS_BINARY_LOCAL binary not found in the current directory."
+        exit 1
+    fi
+
     # Move HFS binary and plugins to appropriate locations
-    sudo mv hfs $HFS_BINARY || { echo "Failed to move hfs binary"; exit 1; }
+    sudo mv $HFS_BINARY_LOCAL $HFS_BINARY || { echo "Failed to move hfs binary"; exit 1; }
     sudo mv plugins/ $HFS_PLUGIN_DIR || { echo "Failed to move plugins"; exit 1; }
 
     # Change ownership of the working directory
