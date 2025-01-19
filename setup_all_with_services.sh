@@ -268,6 +268,8 @@ if ! systemctl is-active --quiet hfs; then
     # Create a new non-privileged user and directory for HFS
     sudo adduser --system hfs
     sudo mkdir -p $HFS_CWD
+    sudo chown hfs:nogroup $HFS_CWD
+
 
     # Download and install HFS
     echo "Downloading HFS version $HFS_VERSION..."
@@ -277,7 +279,7 @@ if ! systemctl is-active --quiet hfs; then
     sudo mv /tmp/hfs/plugins/ $HFS_CWD/plugins
 
     # Change ownership of HFS directory
-    sudo chown hfs:nogroup $HFS_CWD
+    sudo chown -R hfs:nogroup $HFS_CWD
 
     # Set capability to allow HFS to open low-numbered ports
     sudo setcap CAP_NET_BIND_SERVICE=+eip $HFS_BINARY
