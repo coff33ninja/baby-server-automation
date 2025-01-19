@@ -266,7 +266,7 @@ echo "SMB share for $SMB_USER is set up with authentication required!"
 HFS_BINARY="/usr/local/bin/hfs"
 HFS_PLUGIN_DIR="/var/lib/hfs/plugins"
 HFS_CWD="/var/lib/hfs"
-HFS_BINARY_LOCAL="hfs"  # Update this if hfs binary has a different filename in your current directory
+HFS_BINARY_LOCAL="hfs"  # Update this if the hfs binary has a different filename in your current directory
 
 # Install HFS with a non-privileged user (Recommended for security)
 install_hfs_non_privileged() {
@@ -274,31 +274,44 @@ install_hfs_non_privileged() {
 
     # Check if the user 'hfs' exists, if not, create it
     if ! id -u hfs &>/dev/null; then
+        echo "Creating user 'hfs'..."
         sudo adduser --system hfs || { echo "User creation failed"; exit 1; }
     else
-        echo "User 'hfs' already exists."
+        echo "User 'hfs' already exists, skipping user creation."
     fi
 
     # Ensure the necessary directories exist
+    echo "Creating directory $HFS_CWD..."
     sudo mkdir -p $HFS_CWD || { echo "Failed to create directory $HFS_CWD"; exit 1; }
 
-    # Ensure the HFS binary exists before moving it
+    # Check if the HFS binary exists in the current directory
     if [ ! -f "$HFS_BINARY_LOCAL" ]; then
         echo "Error: $HFS_BINARY_LOCAL binary not found in the current directory."
         exit 1
     fi
 
     # Move HFS binary and plugins to appropriate locations
+    echo "Moving HFS binary to $HFS_BINARY..."
     sudo mv $HFS_BINARY_LOCAL $HFS_BINARY || { echo "Failed to move hfs binary"; exit 1; }
-    sudo mv plugins/ $HFS_PLUGIN_DIR || { echo "Failed to move plugins"; exit 1; }
+    
+    # Check if plugins directory exists before moving
+    if [ ! -d "plugins" ]; then
+        echo "Warning: plugins directory does not exist. Skipping plugin move."
+    else
+        echo "Moving plugins directory to $HFS_PLUGIN_DIR..."
+        sudo mv plugins/ $HFS_PLUGIN_DIR || { echo "Failed to move plugins"; exit 1; }
+    fi
 
     # Change ownership of the working directory
+    echo "Changing ownership of $HFS_CWD to hfs..."
     sudo chown hfs:nogroup $HFS_CWD || { echo "Failed to change ownership"; exit 1; }
 
     # Set capability for HFS binary to allow binding to low-numbered ports
+    echo "Setting capabilities for $HFS_BINARY..."
     sudo setcap CAP_NET_BIND_SERVICE=+eip $HFS_BINARY || { echo "Failed to set capabilities on HFS"; exit 1; }
 
     # Create systemd service for HFS
+    echo "Creating systemd service for HFS..."
     sudo tee /etc/systemd/system/hfs.service > /dev/null <<EOF
 [Unit]
 Description=HFS
@@ -315,6 +328,7 @@ WantedBy=multi-user.target
 EOF
 
     # Reload systemd and start HFS service
+    echo "Reloading systemd and starting HFS service..."
     sudo systemctl daemon-reload
     sudo systemctl enable hfs
     sudo systemctl start hfs
