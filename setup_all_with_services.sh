@@ -262,14 +262,28 @@ sudo systemctl restart smbd
 echo "SMB share for $SMB_USER is set up with authentication required!"
 
 # 6. Set up HFS    
-if ! systemctl is-active --quiet hfs; then
-    echo "Setting up HFS..."
-    wget -O /tmp/hfs.zip $HFS_URL
-    unzip /tmp/hfs.zip -d /tmp/hfs
-    sudo mv /tmp/hfs/hfs-linux-x64-${HFS_VERSION}/hfs /usr/local/bin/hfs
+# Set variables for HFS binary and plugin paths
+HFS_BINARY="/usr/local/bin/hfs"
+HFS_PLUGIN_DIR="/var/lib/hfs/plugins"
+HFS_CWD="/var/lib/hfs"
+
+# Option 1: Install HFS with a non-privileged user (Recommended for security)
+install_hfs_non_privileged() {
+    echo "Installing HFS with a non-privileged user..."
+
+    # Create system user and directories
+    sudo adduser --system hfs
     sudo mkdir -p $HFS_CWD
-    sudo chown root:root /usr/local/bin/hfs
-    sudo chmod +x /usr/local/bin/hfs
+
+    # Move HFS binary and plugins to appropriate locations
+    sudo mv hfs $HFS_BINARY
+    sudo mv plugins/ $HFS_PLUGIN_DIR
+
+    # Change ownership of the working directory
+    sudo chown hfs:nogroup $HFS_CWD
+
+    # Set capability for HFS binary to allow binding to low-numbered ports
+    sudo setcap CAP_NET_BIND_SERVICE=+eip $HFS_BINARY
 
     # Create systemd service for HFS
     sudo tee /etc/systemd/system/hfs.service > /dev/null <<EOF
@@ -287,12 +301,58 @@ ExecStart=$HFS_BINARY --cwd $HFS_CWD
 WantedBy=multi-user.target
 EOF
 
+    # Reload systemd and start HFS service
     sudo systemctl daemon-reload
     sudo systemctl enable hfs
     sudo systemctl start hfs
+    sudo systemctl status hfs
+}
+
+# Option 2: Install HFS via Node.js (using npx)
+install_hfs_nodejs() {
+    echo "Installing HFS with Node.js..."
+
+    # Ensure Node.js is installed
+    sudo apt update
+    sudo apt install -y nodejs npm
+
+    # Create systemd service for HFS using npx
+    sudo tee /etc/systemd/system/hfs.service > /dev/null <<EOF
+[Unit]
+Description=HFS
+After=network.target
+
+[Service]
+Type=simple
+Restart=always
+ExecStart=/usr/bin/npx -y hfs@latest
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # Reload systemd and start HFS service
+    sudo systemctl daemon-reload
+    sudo systemctl enable hfs
+    sudo systemctl start hfs
+    sudo systemctl status hfs
+}
+
+# Choose installation method
+echo "Select installation method:"
+echo "1. Install HFS with non-privileged user (Recommended)"
+echo "2. Install HFS using Node.js (via npx)"
+read -p "Enter 1 or 2: " choice
+
+if [ "$choice" -eq 1 ]; then
+    install_hfs_non_privileged
+elif [ "$choice" -eq 2 ]; then
+    install_hfs_nodejs
 else
-    echo "HFS is already installed and running."
+    echo "Invalid choice. Please enter 1 or 2."
+    exit 1
 fi
+
 
 # 7. Set up UpSnap
 if ! systemctl is-active --quiet upsnap; then
