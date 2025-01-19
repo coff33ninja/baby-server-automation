@@ -266,7 +266,8 @@ echo "SMB share for $SMB_USER is set up with authentication required!"
 HFS_BINARY="/usr/local/bin/hfs"
 HFS_PLUGIN_DIR="/var/lib/hfs/plugins"
 HFS_CWD="/var/lib/hfs"
-HFS_BINARY_LOCAL="hfs"  # Update this if the hfs binary has a different filename in your current directory
+HFS_BINARY_LOCAL="hfs"  # Update this if hfs binary has a different filename in your current directory
+HFS_URL="hhttps://github.com/rejetto/hfs/releases/download/v0.55.4/hfs-linux-x64-0.55.4.zip"
 
 # Install HFS with a non-privileged user (Recommended for security)
 install_hfs_non_privileged() {
@@ -287,19 +288,23 @@ install_hfs_non_privileged() {
     # Check if the HFS binary exists in the current directory
     if [ ! -f "$HFS_BINARY_LOCAL" ]; then
         echo "Error: $HFS_BINARY_LOCAL binary not found in the current directory."
-        exit 1
+        echo "Attempting to download the HFS binary from $HFS_URL..."
+
+        # Download and unzip the HFS binary
+        wget -O /tmp/hfs.zip $HFS_URL || { echo "Failed to download HFS binary"; exit 1; }
+        unzip /tmp/hfs.zip -d /tmp/hfs || { echo "Failed to unzip HFS binary"; exit 1; }
+
+        # Move the downloaded HFS binary to the desired location
+        sudo mv /tmp/hfs/hfs-linux-x64-* $HFS_BINARY || { echo "Failed to move hfs binary"; exit 1; }
+        echo "HFS binary downloaded and moved to $HFS_BINARY."
     fi
 
-    # Move HFS binary and plugins to appropriate locations
-    echo "Moving HFS binary to $HFS_BINARY..."
-    sudo mv $HFS_BINARY_LOCAL $HFS_BINARY || { echo "Failed to move hfs binary"; exit 1; }
-    
-    # Check if plugins directory exists before moving
-    if [ ! -d "plugins" ]; then
-        echo "Warning: plugins directory does not exist. Skipping plugin move."
-    else
+    # Move plugins to the appropriate location (if the plugins folder exists)
+    if [ -d "plugins" ]; then
         echo "Moving plugins directory to $HFS_PLUGIN_DIR..."
         sudo mv plugins/ $HFS_PLUGIN_DIR || { echo "Failed to move plugins"; exit 1; }
+    else
+        echo "Warning: plugins directory does not exist. Skipping plugin move."
     fi
 
     # Change ownership of the working directory
