@@ -262,42 +262,51 @@ sudo systemctl restart smbd
 echo "SMB share for $SMB_USER is set up with authentication required!"
 
 # 6. Install HFS via Node.js (using npx)
-# Ensure Node.js is installed
-install_hfs_nodejs() {
-    echo "Installing HFS via Node.js..."
+if ! systemctl is-active --quiet hfs; then
+    echo "Setting up HFS..."
 
-    # Update package list and install dependencies
-    sudo apt update
-    sudo apt install -y nodejs npm || { echo "Failed to install Node.js"; exit 1; }
+    # Create a new non-privileged user and directory for HFS
+    sudo adduser --system hfs
+    sudo mkdir -p $HFS_CWD
 
-    # Verify npx installation
-    if ! command -v npx &>/dev/null; then
-        echo "npx is not installed, installing npx..."
-        sudo npm install -g npx || { echo "Failed to install npx"; exit 1; }
-    fi
+    # Download and install HFS
+    echo "Downloading HFS version $HFS_VERSION..."
+    wget -O /tmp/hfs.zip $HFS_URL
+    unzip /tmp/hfs.zip -d /tmp/hfs
+    sudo mv /tmp/hfs/hfs $HFS_BINARY
+    sudo mv /tmp/hfs/plugins/ $HFS_CWD/plugins
 
-    # Create systemd service for HFS using npx
+    # Change ownership of HFS directory
+    sudo chown hfs:nogroup $HFS_CWD
+
+    # Set capability to allow HFS to open low-numbered ports
+    sudo setcap CAP_NET_BIND_SERVICE=+eip $HFS_BINARY
+
+    # Create systemd service unit
     sudo tee /etc/systemd/system/hfs.service > /dev/null <<EOF
 [Unit]
-Description=HFS
+Description=HFS Service
 After=network.target
 
 [Service]
 Type=simple
+User=hfs
 Restart=always
-ExecStart=/usr/bin/npx -y hfs@latest
+ExecStart=$HFS_BINARY --cwd $HFS_CWD
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-    # Reload systemd and start HFS service
+    # Reload systemd and enable/start HFS service
     sudo systemctl daemon-reload
     sudo systemctl enable hfs
     sudo systemctl start hfs
-}
 
-install_hfs_nodejs
+    echo "HFS service created and started successfully."
+else
+    echo "HFS is already installed and running."
+fi
 
 # 7. Set up UpSnap
 if ! systemctl is-active --quiet upsnap; then
@@ -330,59 +339,39 @@ else
 fi
 
 # 8. Set up iVentoy
-# Set installation and service paths
-USER_HOME="/home/$USER"
-IVENTOY_INSTALL_DIR="$USER_HOME/iventoy"
-IVENTOY_SERVICE_FILE="/etc/systemd/system/iventoy.service"
-
-# Check if iVentoy is installed
-check_iventoy_installed() {
-    if [ -f "$IVENTOY_INSTALL_DIR/iventoy.sh" ]; then
-        echo "iVentoy is already installed."
-        return 0
-    else
-        echo "iVentoy is not installed."
-        return 1
-    fi
-}
-
-# Install iVentoy if not already installed
-if ! check_iventoy_installed; then
-    echo "Downloading and installing iVentoy..."
+if ! systemctl is-active --quiet iventoy; then
+    echo "Setting up iVentoy..."
     wget -O /tmp/iventoy.tar.gz $IVENTOY_URL
     tar -xzf /tmp/iventoy.tar.gz -C /tmp/
-    mv /tmp/iventoy-* $IVENTOY_INSTALL_DIR
-    chown -R $USER:$USER $IVENTOY_INSTALL_DIR
-    echo "iVentoy installed successfully."
-else
-    echo "Skipping iVentoy installation."
-fi
+    mv /tmp/iventoy-* /tmp/iventoy
+    sudo mv /tmp/iventoy/iventoy.sh /usr/local/bin/iventoy
+    sudo chmod +x /usr/local/bin/iventoy
 
-# Create systemd service for iVentoy
-echo "Creating systemd service for iVentoy..."
-sudo tee $IVENTOY_SERVICE_FILE > /dev/null <<EOF
+    # Create the systemd service with environment variables and working directory
+    sudo tee /etc/systemd/system/iventoy.service > /dev/null <<EOF
 [Unit]
 Description=iVentoy Service
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=$IVENTOY_INSTALL_DIR/iventoy.sh start
+ExecStart=/usr/local/bin/iventoy start
 Restart=always
-User=$USER
-WorkingDirectory=$IVENTOY_INSTALL_DIR
-Environment=PATH=/usr/bin:/usr/local/bin
+User=root
+Environment=PATH=/usr/bin:/usr/local/bin:/usr/sbin:/sbin
+WorkingDirectory=/tmp/iventoy  # adjust this if needed, assuming the script needs to run from this directory
+Environment=DISPLAY=:0  # If iVentoy requires GUI access, adjust if necessary
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# Reload systemd and enable the service
-sudo systemctl daemon-reload
-sudo systemctl enable iventoy
-sudo systemctl start iventoy
-
-echo "iVentoy service created and started successfully."
+    sudo systemctl daemon-reload
+    sudo systemctl enable iventoy
+    sudo systemctl start iventoy
+else
+    echo "iVentoy is already installed and running."
+fi
 
 # 9. Optional: Set up Tailscale if user chose to install it
 if [[ "$INSTALL_TAILSCALE" == "y" || "$INSTALL_TAILSCALE" == "Y" ]]; then
@@ -403,15 +392,6 @@ else
     echo "Netdata is already installed and running."
 fi
 
-# 11. Optional: Expose services via Tailscale Funnel (if Tailscale is installed)
-if [[ "$INSTALL_TAILSCALE" == "y" || "$INSTALL_TAILSCALE" == "Y" ]]; then
-    echo "Exposing services via Tailscale Funnel..."
-    tailscale funnel https+insecure://localhost:443
-    tailscale serve http://localhost:8090 --port=8090 # UpSnap
-    tailscale serve http://localhost:80 --port=80 # HFS
-    tailscale serve http://localhost:19999 --port=19999 # Netdata
-fi
-
 # End Note
 echo "Installation complete!"
 echo "Access the following services using your server's IP address ($SERVER_IP):"
@@ -421,3 +401,11 @@ echo "IVentoy: http://$SERVER_IP:26000"
 echo "Netdata: http://$SERVER_IP:19999"
 echo "SMB Share: smb://$SERVER_IP/$SMB_USER"
 echo "Cockpit: http://$SERVER_IP:9090"
+# 11. Optional: Expose services via Tailscale Funnel (if Tailscale is installed)
+if [[ "$INSTALL_TAILSCALE" == "y" || "$INSTALL_TAILSCALE" == "Y" ]]; then
+    echo "Exposing services via Tailscale Funnel..."
+    tailscale funnel https+insecure://localhost:443
+    tailscale serve http://localhost:8090 --port=8090 # UpSnap
+    tailscale serve http://localhost:80 --port=80 # HFS
+    tailscale serve http://localhost:19999 --port=19999 # Netdata
+fi
