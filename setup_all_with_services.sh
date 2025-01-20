@@ -343,34 +343,46 @@ fi
 # 8. Set up iVentoy
 if ! systemctl is-active --quiet iventoy; then
     echo "Setting up iVentoy..."
+    
+    # Download and extract iVentoy
     wget -O /tmp/iventoy.tar.gz $IVENTOY_URL
-    tar -xzf /tmp/iventoy.tar.gz -C /tmp/
-    mv /tmp/iventoy-* /tmp/iventoy
-    sudo mv /tmp/iventoy/iventoy.sh /usr/local/bin/iventoy
-    sudo chmod +x /usr/local/bin/iventoy
+    tar -xzf /tmp/iventoy.tar.gz -C /opt
+    
+    # Move to extracted directory (assuming the folder matches the archive name)
+    IVENTOY_DIR=$(tar -tzf /tmp/iventoy.tar.gz | head -1 | cut -f1 -d"/")
+    cd /opt/$IVENTOY_DIR
 
-    # Create the systemd service with environment variables and working directory
+    # Set execute permissions for iVentoy binary
+    chmod +x ./iventoy
+
+    # Optional: Create a non-privileged user for running iVentoy
+    sudo useradd -r -s /usr/sbin/nologin iventoy
+    sudo chown -R iventoy:iventoy /opt/$IVENTOY_DIR
+
+    # Create a systemd service for iVentoy
     sudo tee /etc/systemd/system/iventoy.service > /dev/null <<EOF
 [Unit]
-Description=iVentoy Service
+Description=iVentoy PXE Service
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/iventoy start
+User=iventoy
+Group=iventoy
+ExecStart=/opt/$IVENTOY_DIR/iventoy
 Restart=always
-User=root
-Environment=PATH=/usr/bin:/usr/local/bin:/usr/sbin:/sbin
-WorkingDirectory=/tmp/iventoy  # adjust this if needed, assuming the script needs to run from this directory
-Environment=DISPLAY=:0  # If iVentoy requires GUI access, adjust if necessary
+WorkingDirectory=/opt/$IVENTOY_DIR
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
+    # Reload systemd and enable/start the iVentoy service
     sudo systemctl daemon-reload
     sudo systemctl enable iventoy
     sudo systemctl start iventoy
+
+    echo "iVentoy service set up and started successfully."
 else
     echo "iVentoy is already installed and running."
 fi
